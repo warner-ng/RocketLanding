@@ -30,10 +30,22 @@ function [u, integrator_dx] = student_controller(t, x_full, consts, ctrl)
     % acceleration vector that determines thrust magnitude and direction.
     h = max(z - consts.L, 0) ;
     dz_ref = -ctrl.vz_max*tanh(h/ctrl.z_slow) ;
+    if(ctrl.initial_theta < -ctrl.recovery_initial_gate)
+        dz_ref = ctrl.neg_large_vz_scale*dz_ref ;
+    end
+    if(ctrl.initial_theta > ctrl.recovery_initial_gate)
+        dz_ref = ctrl.pos_large_vz_scale*dz_ref ;
+    end
+    if(abs(dth) > ctrl.high_rate_gate)
+        dz_ref = ctrl.high_rate_vz_scale*dz_ref ;
+    end
 
     ay_cmd = -ctrl.ky*y - ctrl.kdy*dy ;
     az_raw = ctrl.kz_v*(dz_ref - dz) ;
 
+    if(ctrl.initial_theta < -1.2 && ctrl.initial_theta_abs < ctrl.recovery_initial_gate)
+        ay_cmd = ctrl.neg_angle_y_boost*ay_cmd ;
+    end
     ay_cmd = sat(ay_cmd, -ctrl.max_ay, ctrl.max_ay) ;
 
     % The decoupling formula assumes phi = theta + psi tracks phi_d.  When
@@ -49,14 +61,36 @@ function [u, integrator_dx] = student_controller(t, x_full, consts, ctrl)
         az_cmd = sat(az_raw, ctrl.min_az, ctrl.max_az) ;
     end
 
+    large_angle_recovery = abs(th) > ctrl.large_angle_recovery && ...
+                           (ctrl.initial_theta_abs > ctrl.recovery_initial_gate || ...
+                            abs(dth) > ctrl.high_rate_gate) ;
+
     aT_y = ay_cmd ;
     aT_z = max(az_cmd + consts.g, 0.5) ;
 
-    phi_d = atan2(-aT_y, aT_z) ;
-    phi_d = sat(phi_d, -ctrl.max_phi, ctrl.max_phi) ;
-
-    fT = m/consts.gamma*sqrt(aT_y^2 + aT_z^2) ;
-    if(abs(wrap_angle(phi - phi_d)) > 0.35 && cos(phi) > 0)
+    if(large_angle_recovery)
+        phi_d = 0 ;
+        psi_limit = ctrl.max_psi_cmd ;
+        s_theta = dth + ctrl.clf_lambda*th ;
+        ddtheta_clf = -ctrl.clf_lambda*dth - ctrl.clf_k*s_theta ;
+        c_base = consts.L*consts.gamma/(consts.Jm*m) ;
+        fT_need = abs(ddtheta_clf)/(c_base*sin(psi_limit)) ;
+        if(abs(th) > ctrl.inverted_recovery_angle)
+            recovery_cap = ctrl.recovery_fT_inverted ;
+        elseif(ctrl.initial_theta < -ctrl.inverted_recovery_angle)
+            recovery_cap = ctrl.recovery_fT_neg ;
+        elseif(y*sin(phi) > 0)
+            recovery_cap = ctrl.recovery_fT_help ;
+        else
+            recovery_cap = ctrl.recovery_fT_hurt ;
+        end
+        fT = recovery_cap ;
+    else
+        phi_d = atan2(-aT_y, aT_z) ;
+        phi_d = sat(phi_d, -ctrl.max_phi, ctrl.max_phi) ;
+        fT = m/consts.gamma*sqrt(aT_y^2 + aT_z^2) ;
+    end
+    if(~large_angle_recovery && abs(wrap_angle(phi - phi_d)) > 0.35 && cos(phi) > 0)
         fT = max(fT, m/consts.gamma*aT_z/max(cos(phi), 0.3)) ;
     end
 
@@ -68,19 +102,32 @@ function [u, integrator_dx] = student_controller(t, x_full, consts, ctrl)
     ddtheta_d = -ctrl.ktheta*e_theta - ctrl.kdtheta*dth ;
 
     Ctheta = consts.L*consts.gamma*max(fT, consts.min.fT)/(consts.Jm*m) ;
-    psi_d = asin(sat(-ddtheta_d/max(Ctheta, 1e-3), -sin(ctrl.max_psi_cmd), sin(ctrl.max_psi_cmd))) ;
+    psi_limit = ctrl.max_psi_cmd ;
+    psi_d_raw = asin(sat(-ddtheta_d/max(Ctheta, 1e-3), -sin(psi_limit), sin(psi_limit))) ;
 
-    e_psi = wrap_angle(psi - psi_d) ;
-    tau = consts.JT*(-ctrl.kpsi*e_psi - ctrl.kdpsi*dpsi) ;
+    integrator_x = x_full(10:end) ;
+    if(isempty(integrator_x))
+        psi_cmd = psi_d_raw ;
+        psi_cmd_dot = 0 ;
+    else
+        psi_cmd = sat(integrator_x(1), -psi_limit, psi_limit) ;
+        psi_cmd_dot = sat(ctrl.psi_filter_gain*wrap_angle(psi_d_raw - psi_cmd), ...
+                          -ctrl.max_psi_rate, ctrl.max_psi_rate) ;
+    end
+
+    e_psi = wrap_angle(psi - psi_cmd) ;
+    tau = consts.JT*(-ctrl.kpsi*e_psi - ctrl.kdpsi*(dpsi - psi_cmd_dot)) ;
 
     % Output control input [thrust; torque].  The simulator applies the final
     % actuator saturations; this pre-saturation only avoids numerical spikes.
     u = [sat(fT, consts.min.fT, consts.max.fT);
          sat(tau, -consts.max.tau, consts.max.tau)] ;
 
-    % [Advanced] Replace this if you are using integrators to provide what you want to integrate.
-    integrator_x = x_full(10:end) ; % extracting integrator states
-    integrator_dx = zeros(size(integrator_x)) ; % Replace this by what you want integrated
+    if(ctrl.N_integrators > 0)
+        integrator_dx = psi_cmd_dot ;
+    else
+        integrator_dx = zeros(0,1) ;
+    end
 end
 
 function y = sat(x, lo, hi)
