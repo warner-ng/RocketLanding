@@ -16,14 +16,34 @@ function [ctrl, student_data] = student_setup(x0, consts)
 
 
     % [Controller Setup]
-    % Replace code below with any one time control design computation if needed.
-    % Ex: ctrl.K = lqr(A, B, Q, R) ; (teacher's LQR, Baseline)
-    % ctrl.K = [0.0000    0.0018    0.0997    0.4690   -0.0005    0.0353    0.4850    1.8646    0.0000;
-    %           0.0000    0.0000   -0.0036    1.0045    0.0000    0.0000   -0.0469    3.8980    0.0000] ;
-    ctrl.K = [   -0.0000    2.5000    0.0000   -0.0000   -0.0000    5.0867    0.0000    0.0000   -0.0098
-        0.5000    0.0000  -71.4795  120.1597    3.3595   -0.0000  -81.6727   40.1654   -0.0000]
+    % Section 51: MIMO feedback linearization / decoupling for outputs
+    % h(x) = [y; z].  The outer loop chooses desired COM accelerations,
+    % then inverts the thrust magnitude and thrust direction.
+    ctrl.method = 'mimo_fbl_cascade' ;
 
-    
+    % Outer-loop acceleration commands.
+    ctrl.ky = 0.035 ;
+    ctrl.kdy = 0.35 ;
+    ctrl.kz_v = 0.60 ;
+    ctrl.vz_max = 30.0 ;
+    ctrl.z_slow = 100.0 ;
+    ctrl.safe_vz = 1.0 ;
+
+    % Keep the virtual commands inside the physical thrust cone.
+    ctrl.max_ay = 5.0 ;
+    ctrl.min_az = -3.0 ;
+    ctrl.safe_min_az = 0.0 ;
+    ctrl.max_az = 30.0 ;
+    ctrl.max_phi = 50*pi/180 ;
+
+    % Inner-loop attitude/gimbal cascade.  The outer loop provides the
+    % desired thrust direction phi_d = theta_d; psi is used as a virtual
+    % control for theta, and tau tracks psi_d.
+    ctrl.ktheta = 1.2 ;
+    ctrl.kdtheta = 2.5 ;
+    ctrl.kpsi = 80.0 ;
+    ctrl.kdpsi = 18.0 ;
+    ctrl.max_psi_cmd = 25*pi/180 ;
 
     % [Advanced - default should work] We provide possibility to switch the ode solver if needed.
     % Default ode_type should work in almost all cases.  Don't change this unless you know what you are doing.
