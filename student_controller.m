@@ -129,7 +129,9 @@ function [u, integrator_dx] = student_controller(t, x_full, consts, ctrl)
             clf_lambda = ctrl.clf_lambda ;
             clf_k      = ctrl.clf_k ;
         end
-        s_theta = dth + clf_lambda*th ;
+        % Use shortest angular path to zero for CLF
+        th_err = wrap_angle(th) ;
+        s_theta = dth + clf_lambda*th_err ;
         ddtheta_clf = -clf_lambda*dth - clf_k*s_theta ;
         c_base = consts.L*consts.gamma/(consts.Jm*m) ;
         fT_need = abs(ddtheta_clf)/(c_base*sin(psi_limit)) ;
@@ -137,7 +139,6 @@ function [u, integrator_dx] = student_controller(t, x_full, consts, ctrl)
             recovery_cap = ctrl.recovery_fT_inverted ;
             if(high_alt_neg)
                 % Negative deeply-inverted: mirror positive strategy
-                % |th|>pi/2 means thrust points downward - use near-min fT
                 if(abs(th) > ctrl.hai_fT_switch_angle)
                     recovery_cap = ctrl.hai_fT_deep ;
                 else
@@ -145,8 +146,6 @@ function [u, integrator_dx] = student_controller(t, x_full, consts, ctrl)
                 end
             elseif(high_alt_inverted)
                 if(th > 0)
-                    % Positive angle: thrust points downward when th>pi/2.
-                    % Use near-minimum fT to avoid rapid descent.
                     if(abs(th) > ctrl.hai_fT_switch_angle)
                         recovery_cap = ctrl.hai_fT_deep ;
                     else

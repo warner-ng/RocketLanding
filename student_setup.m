@@ -32,7 +32,7 @@ function [ctrl, student_data] = student_setup(x0, consts)
     % Cruise gate: keep a steady descent speed 
     % when attitude is stable and higher than ctrl.cruise_z
     ctrl.cruise_z = 150.0 ;
-    ctrl.vz_cruise = 60.0 ; 
+    ctrl.vz_cruise = 60.0 ;
 
 
     ctrl.cruise_theta_gate = 0.7 ;
@@ -77,19 +77,18 @@ function [ctrl, student_data] = student_setup(x0, consts)
     ctrl.clf_fT_max = 0.9 ;
     ctrl.clf_lat_accel_max = 5.0 ;
 
-    % High-altitude near-inverted override (z > 1000m AND |th| > 2.2 rad)
-    ctrl.hai_z_thresh     = 1000.0 ;    % altitude threshold (m)
-    ctrl.hai_theta_thresh = 2.2 ;      % angle threshold (rad)
-    ctrl.hai_vz_max       = 6.0 ;      % max descent speed during recovery (m/s)
-    ctrl.hai_clf_lambda   = 1.5 ;      % stronger sliding-mode slope
-    ctrl.hai_clf_k        = 3.0 ;      % stronger convergence gain
-    % fT for near-truly-inverted (|th|>2.7): can use higher thrust safely
-    % When |th| > hai_fT_switch_angle (>pi/2), thrust points downward: use minimum
-    ctrl.hai_fT_switch_angle = pi/2 ;  % ~1.57 rad: above this thrust is mostly downward
-    ctrl.hai_fT_deep      = 0.15 ;     % near min.fT for positive angle deeply inverted
-    ctrl.hai_fT_mid       = 1.8 ;      % moderate fT when theta is recoverable (positive)
-    ctrl.hai_fT_neg       = 2.5 ;      % fT for negative angle hai recovery (torque generation)
-    ctrl.hai_psi_limit    = 40*pi/180 ; % wider gimbal range during hai recovery
+    % 高空大角度恢复策略（z > 阈值 且 |th| > 阈值）
+    ctrl.hai_z_thresh     = 600.0 ;    % 高度阈值 (m)
+    ctrl.hai_theta_thresh = 1.7 ;      % 角度阈值 (rad)
+    ctrl.hai_vz_max       = 4.0 ;      % 恢复时允许的最大下降速度 (m/s)
+    ctrl.hai_clf_lambda   = 2.2 ;      % CLF 斜率系数（更强）
+    ctrl.hai_clf_k        = 4.5 ;      % CLF 收敛系数（更强）
+    % 反转区间推力分段：超过切换角时，推力主要向下，取更小值
+    ctrl.hai_fT_switch_angle = pi/2 ;  % 角度切换点 (rad)，约 1.57
+    ctrl.hai_fT_deep      = 0.35 ;     % 深度反转区推力 (|th| > pi/2)
+    ctrl.hai_fT_mid       = 2.4 ;      % 可恢复区推力（正角度）
+    ctrl.hai_fT_neg       = 3.4 ;      % 负角度恢复推力（便于产生扭矩）
+    ctrl.hai_psi_limit    = 55*pi/180 ; % 高空恢复时更大的摆角限制
 
     % Inner-loop attitude/gimbal cascade.  The outer loop provides the
     % desired thrust direction phi_d = theta_d; psi is used as a virtual

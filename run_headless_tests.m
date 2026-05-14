@@ -25,7 +25,7 @@ function run_headless_tests(max_cases, theta_step_rad)
     % Deterministic coverage: vary only altitude and attitude.
     % Small angles at high altitude are known-passing; skip them to save time.
     % Focus on problem regions: large angles at high altitude.
-    z_list = [25, 50, 100, 200, 350, 500, 800, 1200, 1500];
+    z_list = [25, 50, 100, 200, 350, 500, 650, 800, 900, 1000, 1200, 1500];
     th_grid = -3:theta_step_rad:3;
 
     for z0 = z_list
@@ -35,8 +35,9 @@ function run_headless_tests(max_cases, theta_step_rad)
             max_th = 1.0;
         elseif(z0 <= 500)
             max_th = 1.2;
-        elseif(z0 <= 800)
-            max_th = 2.4;
+        elseif(z0 <= 1000)
+            % For z >= 500, always test high-angle range
+            max_th = 3.0;
         elseif(z0 <= 1200)
             % z=1200: small angles (|th|<=2.0) pass reliably, only test edges
             th_list_z = th_grid(abs(th_grid) <= 3.0 & ...
