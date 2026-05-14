@@ -56,18 +56,6 @@ function [u, integrator_dx] = student_controller(t, x_full, consts, ctrl)
     land_alpha = sat((ctrl.land_z - z)/ctrl.land_z, 0, 1) ;
     dz_ref = (1 - land_alpha)*dz_ref + land_alpha*max(dz_ref, -ctrl.vz_land) ;
 
-    % Optional debug logging
-    persistent last_log_t
-    if(isempty(last_log_t))
-        last_log_t = -inf ;
-    end
-     if(isfield(ctrl, 'debug') && ~isempty(ctrl.debug) && ctrl.debug(1) && ...
-         t - last_log_t >= ctrl.debug_dt)
-        last_log_t = t ;
-        fprintf('t=%.1f z=%.1f dz=%.2f dz_ref=%.2f cruise=%d land_a=%.2f\n', ...
-                t, z, dz, dz_ref, cruise_ok, land_alpha) ;
-    end
-
     ay_cmd = -ctrl.ky*y - ctrl.kdy*dy ;
     az_raw = ctrl.kz_v*(dz_ref - dz) ;
 
@@ -103,6 +91,29 @@ function [u, integrator_dx] = student_controller(t, x_full, consts, ctrl)
                            (ctrl.initial_theta_abs > ctrl.recovery_initial_gate || ...
                             abs(dth) > ctrl.high_rate_gate) ;
     large_angle_recovery = large_angle_recovery(1) ;
+
+    % Optional debug logging (once per second)
+    persistent last_log_t
+    if(isempty(last_log_t))
+        last_log_t = -inf ;
+    end
+    debug_on = isfield(ctrl, 'debug') && ~isempty(ctrl.debug) && ctrl.debug(1) ~= 0 ;
+    debug_on = debug_on(1) ;
+    t_scalar = t(1) ;
+    if(t_scalar < last_log_t)
+        last_log_t = -inf ;
+    end
+    if(debug_on && (t_scalar - last_log_t >= ctrl.debug_dt))
+        last_log_t = t_scalar ;
+        mode = 'normal' ;
+        if(large_angle_recovery)
+            mode = 'large_angle' ;
+        elseif(cruise_ok)
+            mode = 'cruise' ;
+        end
+        fprintf('t=%.0f mode=%s th=%.2f dth=%.2f y=%.1f z=%.1f\n', ...
+                t_scalar, mode, th, dth, y, z) ;
+    end
 
     % High-altitude near-inverted override: z > threshold AND |th| > threshold
     % Also require initial angle was large to avoid triggering on transient swings

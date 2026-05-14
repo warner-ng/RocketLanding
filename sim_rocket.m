@@ -1,5 +1,5 @@
 % Function to simulate rocket
-function [t, x, J] = sim_rocket(x0, wind, opts)
+function varargout = sim_rocket(x0, wind, opts)
     close all ;
 
     % load constant parameters
@@ -10,7 +10,7 @@ function [t, x, J] = sim_rocket(x0, wind, opts)
     %                               dy,dz,dth,dpsi,
     %                               m]
     if(nargin < 1)
-        x0 = [50; 1400; 2.7; 0;
+        x0 = [50; 1400; 2.85; 0;
           0; 0; 0; 0;
           consts.m_nofuel+1.0*consts.max.m_fuel] ;
         wind = 9 ;
@@ -68,6 +68,16 @@ function [t, x, J] = sim_rocket(x0, wind, opts)
             u(j,:) = uu' ;
         end
         animate_rocket(t, x, u) ;
+    end
+
+    if(nargout > 0)
+        varargout{1} = t ;
+    end
+    if(nargout > 1)
+        varargout{2} = x ;
+    end
+    if(nargout > 2)
+        varargout{3} = J ;
     end
 end
 

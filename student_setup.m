@@ -48,9 +48,9 @@ function [ctrl, student_data] = student_setup(x0, consts)
     ctrl.vz_land = 4.0 ;
 
     % Debug logging (set to 1 to print every debug_dt seconds)
-    ctrl.debug = 0 ;
+    ctrl.debug = 1 ;
     ctrl.debug_dt = 1.0 ;
-    ctrl.debug_high_angle = 1 ; % 高角度调试日志开关
+    ctrl.debug_high_angle = 0 ; % 高角度调试日志开关
 
     % Keep the virtual commands inside the physical thrust cone.
     ctrl.max_ay = 5.0 ;
@@ -126,10 +126,10 @@ function [ctrl, student_data] = student_setup(x0, consts)
     ctrl.spin_ddtheta_max    = 0.8 ;   % 旋转抑制时角加速度限幅 (rad/s^2)
     ctrl.spin_tau_max        = 3.0 ;   % 旋转抑制时扭矩限幅
     ctrl.spin_recovery_hold  = 1 ;     % 旋转抑制锁存，避免抖动
-    ctrl.debug_state_chain   = 1 ;     % 状态链路调试日志
+    ctrl.debug_state_chain   = 0 ;     % 状态链路调试日志
     ctrl.spin_recovery_hold  = 1 ;     % 旋转抑制锁存，避免抖动
     ctrl.spin_dth_target     = 0.3 ;   % 目标角速度阈值 (rad/s)
-    ctrl.debug_state_chain   = 1 ;     % 状态链路调试日志
+    ctrl.debug_state_chain   = 0 ;     % 状态链路调试日志
 
     % Inner-loop attitude/gimbal cascade.  The outer loop provides the
     % desired thrust direction phi_d = theta_d; psi is used as a virtual

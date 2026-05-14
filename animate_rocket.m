@@ -1,6 +1,6 @@
 % Function to animate rocket
 function animate_rocket(t_orig, x_orig, u_orig)
-    RATE = 25*0.5 ; % Change this to speed up / slow down animation [Matlab R2014b and onwards appears to have slowed down graphics rendering!].  If someone finds a fix for this, please let me know.
+    RATE = 25*0.1 ; % Change this to speed up / slow down animation [Matlab R2014b and onwards appears to have slowed down graphics rendering!].  If someone finds a fix for this, please let me know.
     % RATE = 25 ;  % Use this for Matlab R2014a and below.
     
     t_vec = linspace(t_orig(1), t_orig(end), round( (t_orig(end)-t_orig(1))*RATE ))' ;
