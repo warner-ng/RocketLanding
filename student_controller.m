@@ -40,6 +40,31 @@ function [u, integrator_dx] = student_controller(t, x_full, consts, ctrl)
         dz_ref = ctrl.high_rate_vz_scale*dz_ref ;
     end
 
+    % Cruise gate: keep a steady descent speed when high enough and stable
+    cruise_ok = z > ctrl.cruise_z && abs(th) < ctrl.cruise_theta_gate && ...
+                abs(dth) < ctrl.cruise_dtheta_gate && abs(y) < ctrl.cruise_y_gate ;
+    if(cruise_ok)
+        dz_ref = min(dz_ref, -ctrl.vz_cruise) ;
+    else
+        % Near-ground descent cap: first to a faster limit, then to the final limit
+        land_alpha_fast = sat((ctrl.land_z_fast - z)/ctrl.land_z_fast, 0, 1) ;
+        dz_ref = (1 - land_alpha_fast)*dz_ref + land_alpha_fast*max(dz_ref, -ctrl.vz_land_fast) ;
+    end
+    land_alpha = sat((ctrl.land_z - z)/ctrl.land_z, 0, 1) ;
+    dz_ref = (1 - land_alpha)*dz_ref + land_alpha*max(dz_ref, -ctrl.vz_land) ;
+
+    % Optional debug logging
+    persistent last_log_t
+    if(isempty(last_log_t))
+        last_log_t = -inf ;
+    end
+     if(isfield(ctrl, 'debug') && ~isempty(ctrl.debug) && ctrl.debug(1) && ...
+         t - last_log_t >= ctrl.debug_dt)
+        last_log_t = t ;
+        fprintf('t=%.1f z=%.1f dz=%.2f dz_ref=%.2f cruise=%d land_a=%.2f\n', ...
+                t, z, dz, dz_ref, cruise_ok, land_alpha) ;
+    end
+
     ay_cmd = -ctrl.ky*y - ctrl.kdy*dy ;
     az_raw = ctrl.kz_v*(dz_ref - dz) ;
 

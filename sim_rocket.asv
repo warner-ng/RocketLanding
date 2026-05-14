@@ -4,16 +4,12 @@ function sim_rocket(x0, wind)
 
     % load constant parameters
     consts = get_consts() ;
-
-
-    %   x - state of the rocket, x=[y,z,th,psi,
-    %                               dy,dz,dth,dpsi,
-    %                               m]
+    
     if(nargin < 1)
         x0 = [50; 1200; 2.2; 0;
           0; 0; 0; 0;
           consts.m_nofuel+1.0*consts.max.m_fuel] ;
-        wind = 9 ;
+        wind = 0 ;
     end
     
     % call student one-time setup
