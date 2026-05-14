@@ -10,6 +10,9 @@
 % of the integrators and ode45 will integrate this.
 
 function [u, integrator_dx] = student_controller(t, x_full, consts, ctrl)
+    if(size(x_full, 2) > 1)
+        x_full = x_full(:, 1) ;
+    end
 
     % Extract state
     x = x_full(1:9) ; % The first 9 states corresponding to the rocket states
@@ -79,6 +82,7 @@ function [u, integrator_dx] = student_controller(t, x_full, consts, ctrl)
     aT_z_preview = max(sat(az_raw, ctrl.min_az, ctrl.max_az) + consts.g, 0.5) ;
     phi_preview = sat(atan2(-ay_cmd, aT_z_preview), -ctrl.max_phi, ctrl.max_phi) ;
     phi = wrap_angle(th + psi) ;
+    phi = phi(1) ;
     % For high-alt-inverted recoveries, use a looser attitude gate so the
     % rocket descends faster once theta is nearly recovered.
     if(ctrl.initial_theta_abs > ctrl.hai_theta_thresh)
@@ -98,17 +102,42 @@ function [u, integrator_dx] = student_controller(t, x_full, consts, ctrl)
     large_angle_recovery = abs(th) > ctrl.large_angle_recovery && ...
                            (ctrl.initial_theta_abs > ctrl.recovery_initial_gate || ...
                             abs(dth) > ctrl.high_rate_gate) ;
+    large_angle_recovery = large_angle_recovery(1) ;
 
-    % High-altitude near-inverted override: z > 1000m AND |th| > 2.2 rad
+    % High-altitude near-inverted override: z > threshold AND |th| > threshold
     % Also require initial angle was large to avoid triggering on transient swings
     high_alt_inverted = z > ctrl.hai_z_thresh && abs(th) > ctrl.hai_theta_thresh && ...
                         ctrl.initial_theta_abs > ctrl.hai_theta_thresh ;
     % Negative-angle high-altitude recovery: same zone but for negative initial theta
     high_alt_neg = z > ctrl.hai_z_thresh && th <= -ctrl.hai_theta_thresh && ...
                    ctrl.initial_theta <= -ctrl.hai_theta_thresh ;
-    if(high_alt_inverted || high_alt_neg)
+    % Deep-angle override for very large angles
+    deep_angle = abs(th) > ctrl.deep_theta_thresh && z > ctrl.hai_z_thresh ;
+    deep_exit = abs(th) < ctrl.deep_theta_exit ;
+    persistent spin_active last_mode
+    if(isempty(spin_active))
+        spin_active = false ;
+    end
+    if(isempty(last_mode))
+        last_mode = 'normal' ;
+    end
+    spin_active = false ;
+    spin_guard = false ;
+    spin_exit = true ;
+    if(high_alt_inverted || high_alt_neg || deep_angle)
         dz_ref = max(dz_ref, -ctrl.hai_vz_max) ;
+        if(deep_angle)
+            dz_ref = max(dz_ref, -ctrl.deep_vz_max) ;
+        end
         az_cmd = sat(ctrl.kz_v*(dz_ref - dz), ctrl.safe_min_az, ctrl.max_az) ;
+    end
+
+    if((deep_angle && ~deep_exit) || (spin_guard && ~spin_exit))
+        if(ctrl.deep_ay_zero)
+            ay_cmd = 0 ;
+        else
+            ay_cmd = ctrl.deep_ay_scale*ay_cmd ;
+        end
     end
 
     aT_y = ay_cmd ;
@@ -116,23 +145,39 @@ function [u, integrator_dx] = student_controller(t, x_full, consts, ctrl)
 
     if(large_angle_recovery)
         phi_d = 0 ;
-        if(high_alt_inverted || high_alt_neg)
+        if(high_alt_inverted || high_alt_neg || deep_angle || spin_guard)
             psi_limit = ctrl.hai_psi_limit ;
+            if(deep_angle)
+                psi_limit = ctrl.deep_psi_limit ;
+            end
+            if(spin_guard)
+                psi_limit = ctrl.spin_psi_limit ;
+            end
         else
             psi_limit = ctrl.max_psi_cmd ;
         end
         % Use stronger CLF gains for high-alt near-inverted case
-        if(high_alt_inverted || high_alt_neg)
+        if(high_alt_inverted || high_alt_neg || deep_angle || spin_guard)
             clf_lambda = ctrl.hai_clf_lambda ;
             clf_k      = ctrl.hai_clf_k ;
+            if(deep_angle)
+                clf_lambda = ctrl.deep_clf_lambda ;
+                clf_k      = ctrl.deep_clf_k ;
+            end
+            if(spin_guard)
+                clf_lambda = ctrl.spin_clf_lambda ;
+                clf_k      = ctrl.spin_clf_k ;
+            end
         else
             clf_lambda = ctrl.clf_lambda ;
             clf_k      = ctrl.clf_k ;
         end
         % Use shortest angular path to zero for CLF
         th_err = wrap_angle(th) ;
-        s_theta = dth + clf_lambda*th_err ;
-        ddtheta_clf = -clf_lambda*dth - clf_k*s_theta ;
+        dth_eff = sat(dth, -ctrl.large_dth_cap, ctrl.large_dth_cap) ;
+        s_theta = dth_eff + clf_lambda*th_err ;
+        ddtheta_clf = -clf_lambda*dth_eff - clf_k*s_theta ;
+        ddtheta_clf = sat(ddtheta_clf, -ctrl.large_ddtheta_max, ctrl.large_ddtheta_max) ;
         c_base = consts.L*consts.gamma/(consts.Jm*m) ;
         fT_need = abs(ddtheta_clf)/(c_base*sin(psi_limit)) ;
         if(abs(th) > ctrl.inverted_recovery_angle)
@@ -160,14 +205,81 @@ function [u, integrator_dx] = student_controller(t, x_full, consts, ctrl)
         else
             recovery_cap = ctrl.recovery_fT_hurt ;
         end
-        fT = recovery_cap ;
+        fT = min(recovery_cap, ctrl.large_fT_max) ;
     else
         phi_d = atan2(-aT_y, aT_z) ;
         phi_d = sat(phi_d, -ctrl.max_phi, ctrl.max_phi) ;
+        phi_d = phi_d(1) ;
         fT = m/consts.gamma*sqrt(aT_y^2 + aT_z^2) ;
     end
-    if(~large_angle_recovery && abs(wrap_angle(phi - phi_d)) > 0.35 && cos(phi) > 0)
+
+    % Rate-limit desired thrust angle to avoid abrupt attitude changes
+    persistent phi_cmd last_phi_t
+    if(isempty(phi_cmd) || numel(phi_cmd) ~= 1)
+        phi_cmd = phi_d ;
+        last_phi_t = t ;
+    end
+    dt = max(t - last_phi_t, 1e-3) ;
+    last_phi_t = t ;
+    rate_limit = ctrl.phi_rate_limit ;
+    if(spin_guard && ~spin_exit)
+        rate_limit = ctrl.spin_phi_rate_limit ;
+    end
+    if(th < 0)
+        rate_limit = ctrl.neg_phi_rate_limit ;
+    end
+    if(deep_angle)
+        rate_limit = ctrl.deep_phi_rate_limit ;
+        if(th < 0)
+            rate_limit = ctrl.deep_neg_phi_rate_limit ;
+        end
+    end
+    phi_step = sat(phi_d - phi_cmd, -rate_limit*dt, rate_limit*dt) ;
+    phi_cmd = phi_cmd + phi_step ;
+    phi_d = phi_cmd ;
+    angle_err = wrap_angle(phi - phi_d) ;
+    angle_err = angle_err(1) ;
+    if(~large_angle_recovery && abs(angle_err) > 0.35 && cos(phi) > 0)
         fT = max(fT, m/consts.gamma*aT_z/max(cos(phi), 0.3)) ;
+    end
+
+    if(spin_guard && ~spin_exit)
+        fT = min(fT, ctrl.spin_fT) ;
+    end
+
+    % High-angle debug logging
+    persistent last_dbg_t
+    if(isempty(last_dbg_t))
+        last_dbg_t = -inf ;
+    end
+    if(ctrl.debug_state_chain)
+        mode = 'normal' ;
+        if(spin_guard && ~spin_exit)
+            mode = 'spin_guard' ;
+        elseif(large_angle_recovery)
+            mode = 'large_angle' ;
+        elseif(cruise_ok)
+            mode = 'cruise' ;
+        end
+        if(~strcmp(last_mode, mode))
+            fprintf('t=%.2f transition %s -> %s | th=%.2f dth=%.2f z=%.1f\n', ...
+                    t, last_mode, mode, th, dth, z) ;
+            last_mode = mode ;
+        end
+    end
+    if(ctrl.debug_high_angle && (spin_guard || large_angle_recovery))
+        if(t - last_dbg_t >= 0.25)
+            last_dbg_t = t ;
+            mode = 'normal' ;
+            if(spin_guard && ~spin_exit)
+                mode = 'spin_guard' ;
+            elseif(large_angle_recovery)
+                mode = 'large_angle' ;
+            end
+            fprintf(['t=%.2f z=%.1f th=%.2f dth=%.2f phi=%.2f phi_d=%.2f ' ...
+                     'fT=%.2f mode=%s\n'], ...
+                    t, z, th, dth, phi, phi_d, fT, mode) ;
+        end
     end
 
     % ---- Cascade inner loop ----
@@ -193,6 +305,9 @@ function [u, integrator_dx] = student_controller(t, x_full, consts, ctrl)
 
     e_psi = wrap_angle(psi - psi_cmd) ;
     tau = consts.JT*(-ctrl.kpsi*e_psi - ctrl.kdpsi*(dpsi - psi_cmd_dot)) ;
+    if(spin_guard && ~spin_exit)
+        tau = sat(tau, -ctrl.spin_tau_max, ctrl.spin_tau_max) ;
+    end
 
     % Output control input [thrust; torque].  The simulator applies the final
     % actuator saturations; this pre-saturation only avoids numerical spikes.

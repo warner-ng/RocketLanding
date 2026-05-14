@@ -10,7 +10,7 @@ function [t, x, J] = sim_rocket(x0, wind, opts)
     %                               dy,dz,dth,dpsi,
     %                               m]
     if(nargin < 1)
-        x0 = [50; 1200; 2.2; 0;
+        x0 = [50; 1400; 2.7; 0;
           0; 0; 0; 0;
           consts.m_nofuel+1.0*consts.max.m_fuel] ;
         wind = 9 ;
@@ -74,6 +74,11 @@ end
 
 % Function to describe the dynamics of the rocket
 function [dx u] = odefun_rocket(t, x, wind, consts, ctrl)
+    % Ensure state is a column vector (avoid vectorized input issues)
+    if(size(x, 2) > 1)
+        x = x(:, 1) ;
+    end
+
     % Extract various states
     y = x(1) ;
     z = x(2) ;
@@ -121,6 +126,14 @@ function [dx u] = odefun_rocket(t, x, wind, consts, ctrl)
     
     % call student controller
     [u, integrator_dx] = student_controller(t, x, consts, ctrl) ;
+
+    % Ensure u is a 2x1 column vector for matrix multiplication
+    u = u(:) ;
+    if(numel(u) < 2)
+        u = [u; 0] ;
+    elseif(numel(u) > 2)
+        u = u(1:2) ;
+    end
 
     % Check if fuel is over
     if(m <= consts.m_nofuel)

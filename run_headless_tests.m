@@ -1,12 +1,19 @@
-function run_headless_tests(max_cases, theta_step_rad)
+function run_headless_tests(max_cases, theta_step_rad, theta_min_rad, z_min_high)
 %RUN_HEADLESS_TESTS Run fixed initial-condition tests headless.
-%   run_headless_tests(MAX_CASES, THETA_STEP_RAD) runs up to MAX_CASES cases.
+%   run_headless_tests(MAX_CASES, THETA_STEP_RAD, THETA_MIN_RAD, Z_MIN_HIGH)
+%   optionally focuses on high-angle cases with |th|>=THETA_MIN_RAD for z>=Z_MIN_HIGH.
 
     if nargin < 1
         max_cases = inf;
     end
     if nargin < 2
         theta_step_rad = 0.1;
+    end
+    if nargin < 3
+        theta_min_rad = 0.0;
+    end
+    if nargin < 4
+        z_min_high = 0.0;
     end
     consts = get_consts();
 
@@ -56,6 +63,14 @@ function run_headless_tests(max_cases, theta_step_rad)
             continue;
         end
         th_list = th_grid(abs(th_grid) <= max_th);
+
+        if(theta_min_rad > 0 && z0 >= z_min_high)
+            th_list = th_list(abs(th_list) >= theta_min_rad);
+        end
+
+        if(theta_min_rad > 0 && z0 < z_min_high)
+            continue;
+        end
 
         for th0 = th_list
             cases = [cases; add_case(0, z0, th0, 0, 0, 0, 0)];
@@ -138,6 +153,8 @@ function run_headless_tests(max_cases, theta_step_rad)
 
     % Visual summary (heatmap): green = pass, red = fail, gray = N/A
     if(save_summary_plot)
+        total_score = sum(scores(~isnan(scores)));
+        total_cases = num_tests;
         pass_grid = nan(numel(unique_z), numel(unique_th));
         for i = 1:numel(unique_z)
             for j = 1:numel(unique_th)
@@ -157,7 +174,7 @@ function run_headless_tests(max_cases, theta_step_rad)
         colorbar('Ticks', [0 0.5 1], 'TickLabels', {'FAIL', 'N/A', 'OK'});
         xlabel('theta (rad)');
         ylabel('z (m)');
-        title('Pass/Fail Heatmap');
+        title(sprintf('Pass/Fail Heatmap | Total Score: %.1f | Cases: %d', total_score, total_cases));
         set(gca, 'YDir', 'normal');
         xticks(-3:0.5:3);
         png_name = fullfile(out_dir, ['headless_summary_' stamp '.png']);
