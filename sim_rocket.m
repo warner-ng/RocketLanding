@@ -10,7 +10,7 @@ function varargout = sim_rocket(x0, wind, opts)
     %                               dy,dz,dth,dpsi,
     %                               m]
     if(nargin < 1)
-        x0 = [50; 1400; 2.85; 0;
+        x0 = [50; 1400; 2.9; 0;
           0; 0; 0; 0;
           consts.m_nofuel+1.0*consts.max.m_fuel] ;
         wind = 9 ;

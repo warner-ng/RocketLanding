@@ -44,8 +44,16 @@ function [u, integrator_dx] = student_controller(t, x_full, consts, ctrl)
     end
 
     % Cruise gate: keep a steady descent speed when high enough and stable
-    cruise_ok = z > ctrl.cruise_z && abs(th) < ctrl.cruise_theta_gate && ...
-                abs(dth) < ctrl.cruise_dtheta_gate && abs(y) < ctrl.cruise_y_gate ;
+    theta_gate = ctrl.cruise_theta_gate ;
+    dtheta_gate = ctrl.cruise_dtheta_gate ;
+    y_gate = ctrl.cruise_y_gate ;
+    if(ctrl.initial_theta_abs > 2.5)
+        theta_gate = ctrl.cruise_theta_gate_hi ;
+        dtheta_gate = ctrl.cruise_dtheta_gate_hi ;
+        y_gate = ctrl.cruise_y_gate_hi ;
+    end
+    cruise_ok = z > ctrl.cruise_z && abs(th) < theta_gate && ...
+                abs(dth) < dtheta_gate && abs(y) < y_gate ;
     if(cruise_ok)
         dz_ref = min(dz_ref, -ctrl.vz_cruise) ;
     else
