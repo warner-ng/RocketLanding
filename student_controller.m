@@ -79,7 +79,16 @@ function [u, integrator_dx] = student_controller(t, x_full, consts, ctrl)
     aT_z_preview = max(sat(az_raw, ctrl.min_az, ctrl.max_az) + consts.g, 0.5) ;
     phi_preview = sat(atan2(-ay_cmd, aT_z_preview), -ctrl.max_phi, ctrl.max_phi) ;
     phi = wrap_angle(th + psi) ;
-    if(abs(wrap_angle(th - phi_preview)) > 0.5 || abs(wrap_angle(phi - phi_preview)) > 0.7)
+    % For high-alt-inverted recoveries, use a looser attitude gate so the
+    % rocket descends faster once theta is nearly recovered.
+    if(ctrl.initial_theta_abs > ctrl.hai_theta_thresh)
+        safe_vz_gate_th  = 1.2 ;
+        safe_vz_gate_phi = 1.4 ;
+    else
+        safe_vz_gate_th  = 0.5 ;
+        safe_vz_gate_phi = 0.7 ;
+    end
+    if(abs(wrap_angle(th - phi_preview)) > safe_vz_gate_th || abs(wrap_angle(phi - phi_preview)) > safe_vz_gate_phi)
         dz_ref = max(dz_ref, -ctrl.safe_vz) ;
         az_cmd = sat(ctrl.kz_v*(dz_ref - dz), ctrl.safe_min_az, ctrl.max_az) ;
     else
@@ -90,18 +99,61 @@ function [u, integrator_dx] = student_controller(t, x_full, consts, ctrl)
                            (ctrl.initial_theta_abs > ctrl.recovery_initial_gate || ...
                             abs(dth) > ctrl.high_rate_gate) ;
 
+    % High-altitude near-inverted override: z > 1000m AND |th| > 2.2 rad
+    % Also require initial angle was large to avoid triggering on transient swings
+    high_alt_inverted = z > ctrl.hai_z_thresh && abs(th) > ctrl.hai_theta_thresh && ...
+                        ctrl.initial_theta_abs > ctrl.hai_theta_thresh ;
+    % Negative-angle high-altitude recovery: same zone but for negative initial theta
+    high_alt_neg = z > ctrl.hai_z_thresh && th <= -ctrl.hai_theta_thresh && ...
+                   ctrl.initial_theta <= -ctrl.hai_theta_thresh ;
+    if(high_alt_inverted || high_alt_neg)
+        dz_ref = max(dz_ref, -ctrl.hai_vz_max) ;
+        az_cmd = sat(ctrl.kz_v*(dz_ref - dz), ctrl.safe_min_az, ctrl.max_az) ;
+    end
+
     aT_y = ay_cmd ;
     aT_z = max(az_cmd + consts.g, 0.5) ;
 
     if(large_angle_recovery)
         phi_d = 0 ;
-        psi_limit = ctrl.max_psi_cmd ;
-        s_theta = dth + ctrl.clf_lambda*th ;
-        ddtheta_clf = -ctrl.clf_lambda*dth - ctrl.clf_k*s_theta ;
+        if(high_alt_inverted || high_alt_neg)
+            psi_limit = ctrl.hai_psi_limit ;
+        else
+            psi_limit = ctrl.max_psi_cmd ;
+        end
+        % Use stronger CLF gains for high-alt near-inverted case
+        if(high_alt_inverted || high_alt_neg)
+            clf_lambda = ctrl.hai_clf_lambda ;
+            clf_k      = ctrl.hai_clf_k ;
+        else
+            clf_lambda = ctrl.clf_lambda ;
+            clf_k      = ctrl.clf_k ;
+        end
+        s_theta = dth + clf_lambda*th ;
+        ddtheta_clf = -clf_lambda*dth - clf_k*s_theta ;
         c_base = consts.L*consts.gamma/(consts.Jm*m) ;
         fT_need = abs(ddtheta_clf)/(c_base*sin(psi_limit)) ;
         if(abs(th) > ctrl.inverted_recovery_angle)
             recovery_cap = ctrl.recovery_fT_inverted ;
+            if(high_alt_neg)
+                % Negative deeply-inverted: mirror positive strategy
+                % |th|>pi/2 means thrust points downward - use near-min fT
+                if(abs(th) > ctrl.hai_fT_switch_angle)
+                    recovery_cap = ctrl.hai_fT_deep ;
+                else
+                    recovery_cap = ctrl.hai_fT_mid ;
+                end
+            elseif(high_alt_inverted)
+                if(th > 0)
+                    % Positive angle: thrust points downward when th>pi/2.
+                    % Use near-minimum fT to avoid rapid descent.
+                    if(abs(th) > ctrl.hai_fT_switch_angle)
+                        recovery_cap = ctrl.hai_fT_deep ;
+                    else
+                        recovery_cap = ctrl.hai_fT_mid ;
+                    end
+                end
+            end
         elseif(ctrl.initial_theta < -ctrl.inverted_recovery_angle)
             recovery_cap = ctrl.recovery_fT_neg ;
         elseif(y*sin(phi) > 0)

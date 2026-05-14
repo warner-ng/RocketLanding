@@ -77,6 +77,20 @@ function [ctrl, student_data] = student_setup(x0, consts)
     ctrl.clf_fT_max = 0.9 ;
     ctrl.clf_lat_accel_max = 5.0 ;
 
+    % High-altitude near-inverted override (z > 1000m AND |th| > 2.2 rad)
+    ctrl.hai_z_thresh     = 1000.0 ;    % altitude threshold (m)
+    ctrl.hai_theta_thresh = 2.2 ;      % angle threshold (rad)
+    ctrl.hai_vz_max       = 6.0 ;      % max descent speed during recovery (m/s)
+    ctrl.hai_clf_lambda   = 1.5 ;      % stronger sliding-mode slope
+    ctrl.hai_clf_k        = 3.0 ;      % stronger convergence gain
+    % fT for near-truly-inverted (|th|>2.7): can use higher thrust safely
+    % When |th| > hai_fT_switch_angle (>pi/2), thrust points downward: use minimum
+    ctrl.hai_fT_switch_angle = pi/2 ;  % ~1.57 rad: above this thrust is mostly downward
+    ctrl.hai_fT_deep      = 0.15 ;     % near min.fT for positive angle deeply inverted
+    ctrl.hai_fT_mid       = 1.8 ;      % moderate fT when theta is recoverable (positive)
+    ctrl.hai_fT_neg       = 2.5 ;      % fT for negative angle hai recovery (torque generation)
+    ctrl.hai_psi_limit    = 40*pi/180 ; % wider gimbal range during hai recovery
+
     % Inner-loop attitude/gimbal cascade.  The outer loop provides the
     % desired thrust direction phi_d = theta_d; psi is used as a virtual
     % control for theta, and tau tracks psi_d.
