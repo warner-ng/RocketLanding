@@ -1,5 +1,5 @@
 % Function to simulate rocket
-function sim_rocket(x0, wind, opts)
+function [t, x, J] = sim_rocket(x0, wind, opts)
     close all ;
 
     % load constant parameters
