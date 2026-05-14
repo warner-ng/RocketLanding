@@ -1,5 +1,5 @@
 % Function to simulate rocket
-function sim_rocket(x0, wind)
+function sim_rocket(x0, wind, opts)
     close all ;
 
     % load constant parameters
@@ -14,6 +14,20 @@ function sim_rocket(x0, wind)
           0; 0; 0; 0;
           consts.m_nofuel+1.0*consts.max.m_fuel] ;
         wind = 9 ;
+    end
+    if(nargin < 3 || isempty(opts))
+        opts.verbose = true ;
+        opts.do_plots = true ;
+        opts.do_anim = true ;
+    end
+    if(~isfield(opts, 'verbose'))
+        opts.verbose = true ;
+    end
+    if(~isfield(opts, 'do_plots'))
+        opts.do_plots = true ;
+    end
+    if(~isfield(opts, 'do_anim'))
+        opts.do_anim = true ;
     end
     
     % call student one-time setup
@@ -32,26 +46,29 @@ function sim_rocket(x0, wind)
 
     
     % Display Helpful information after simulation
-    disp(['Touchdown Time: ' num2str(t(end))]) ;
-    disp(['Touchdown Configuration: y=' num2str(x(end,1)) ' z=' num2str(x(end,2)) ' theta(deg)=' num2str(x(end,3)*180/pi) ' psi(deg)=' num2str(x(end,4)*180/pi)]) ;
-    disp(['Touchdown Velocity: y=' num2str(x(end,5)) ' z=' num2str(x(end,6)) ' theta(deg/s)=' num2str(x(end,7)*180/pi) ' psi(deg/s)=' num2str(x(end,8)*180/pi)]) ;
-    
     J = compute_score(x(end,:)', consts) ;
-    disp(['Score: ' num2str(J)]) ;
-    
-    % Plots
-    figure ; plot(t, x(:,1)) ; grid on ; xlabel('Time (s)') ; ylabel('y (m)') ; title('Rocket Horizontal Position') ;
-    figure ; plot(t, x(:,2)) ; grid on ; xlabel('Time (s)') ; ylabel('z (m)') ; title('Rocket Altitude') ;
-    figure ; plot(t, x(:,3)*180/pi) ; grid on ; xlabel('Time (s)') ; ylabel('theta (deg)') ;  title('Rocket Attitude') ;
-    figure ; plot(t, x(:,4)*180/pi) ; grid on ; xlabel('Time (s)') ; ylabel('psi (deg)') ; title('Rocket Gimbal Angle') ;
-    
-    % Animation
-    u = zeros(length(t), 2) ;
-    for j=1:length(t)
-        [dx uu] = odefun_rocket(t, x(j,:)', wind, consts, ctrl) ;
-        u(j,:) = uu' ;
+    if(opts.verbose)
+        disp(['Touchdown Time: ' num2str(t(end))]) ;
+        disp(['Touchdown Configuration: y=' num2str(x(end,1)) ' z=' num2str(x(end,2)) ' theta(deg)=' num2str(x(end,3)*180/pi) ' psi(deg)=' num2str(x(end,4)*180/pi)]) ;
+        disp(['Touchdown Velocity: y=' num2str(x(end,5)) ' z=' num2str(x(end,6)) ' theta(deg/s)=' num2str(x(end,7)*180/pi) ' psi(deg/s)=' num2str(x(end,8)*180/pi)]) ;
+        disp(['Score: ' num2str(J)]) ;
     end
-    animate_rocket(t, x, u) ;
+    
+    if(opts.do_plots)
+        figure ; plot(t, x(:,1)) ; grid on ; xlabel('Time (s)') ; ylabel('y (m)') ; title('Rocket Horizontal Position') ;
+        figure ; plot(t, x(:,2)) ; grid on ; xlabel('Time (s)') ; ylabel('z (m)') ; title('Rocket Altitude') ;
+        figure ; plot(t, x(:,3)*180/pi) ; grid on ; xlabel('Time (s)') ; ylabel('theta (deg)') ;  title('Rocket Attitude') ;
+        figure ; plot(t, x(:,4)*180/pi) ; grid on ; xlabel('Time (s)') ; ylabel('psi (deg)') ; title('Rocket Gimbal Angle') ;
+    end
+    
+    if(opts.do_anim)
+        u = zeros(length(t), 2) ;
+        for j=1:length(t)
+            [dx uu] = odefun_rocket(t, x(j,:)', wind, consts, ctrl) ;
+            u(j,:) = uu' ;
+        end
+        animate_rocket(t, x, u) ;
+    end
 end
 
 

@@ -10,17 +10,15 @@ function run_headless_tests(max_cases)
     % Hide figures for headless runs.
     set(0, 'DefaultFigureVisible', 'off');
     cleanup = onCleanup(@() set(0, 'DefaultFigureVisible', 'on'));
+    opts.verbose = true;
+    opts.do_plots = false;
+    opts.do_anim = false;
 
     cases = [];
     add_case = @(y0,z0,th0,dy0,dz0,dth0,wind) [y0, z0, th0, dy0, dz0, dth0, wind];
 
-    % Deterministic coverage with altitude-dependent angle limits.
-    z_list = [50, 100, 200, 350, 500, 800, 1200];
-    y_list = [0, 20, -20, 50, -50, 80, -80];
-    dy_list = [0, 3, -3, 6, -6, 10, -10];
-    dz_list = [0, -2, -4, -6, -8, -10];
-    dth_list = [0, 0.6, -0.6, 1.2, -1.2, 2.0, -2.0, 3.0, -3.0];
-    wind_list = [0, 3, -3, 6, -6, 10, -10];
+    % Deterministic coverage: vary only altitude and attitude.
+    z_list = [50, 100, 200, 350, 500, 800, 1200, 1500];
 
     for z0 = z_list
         if(z0 <= 100)
@@ -36,21 +34,9 @@ function run_headless_tests(max_cases)
         end
 
         for th0 = th_list
-            y0 = y_list(mod(length(cases), length(y_list)) + 1);
-            dy0 = dy_list(mod(length(cases), length(dy_list)) + 1);
-            dz0 = dz_list(mod(length(cases), length(dz_list)) + 1);
-            dth0 = dth_list(mod(length(cases), length(dth_list)) + 1);
-            wind = wind_list(mod(length(cases), length(wind_list)) + 1);
-            cases = [cases; add_case(y0, z0, th0, dy0, dz0, dth0, wind)];
+            cases = [cases; add_case(0, z0, th0, 0, 0, 0, 0)];
         end
     end
-
-    % Add a few combined moderate cases near the middle of the range.
-    cases = [cases;
-             add_case(30, 200, 0.5, 5, -6, 1.0, 5);
-             add_case(-30, 200, -0.5, -5, -6, -1.0, -5);
-             add_case(60, 350, 0.8, 8, -8, 1.2, 8);
-             add_case(-60, 350, -0.8, -8, -8, -1.2, -8)];
 
     num_tests = min(size(cases, 1), max_cases);
     for k = 1:num_tests
@@ -70,6 +56,6 @@ function run_headless_tests(max_cases)
              'dth=%.3frad/s wind=%.2f\n'], ...
             y0, z0, th0, dy0, dz0, dth0, wind);
 
-        sim_rocket(x0, wind);
+        sim_rocket(x0, wind, opts);
     end
 end

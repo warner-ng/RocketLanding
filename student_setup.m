@@ -32,18 +32,20 @@ function [ctrl, student_data] = student_setup(x0, consts)
     % Cruise gate: keep a steady descent speed 
     % when attitude is stable and higher than ctrl.cruise_z
     ctrl.cruise_z = 150.0 ;
-    ctrl.vz_cruise = 60.0 ;
+    ctrl.vz_cruise = 60.0 ; 
+
+
     ctrl.cruise_theta_gate = 0.7 ;
     ctrl.cruise_dtheta_gate = 1.2 ;
     ctrl.cruise_y_gate = 20.0 ;
 
     % if not in cruise, near-ground descent caps
     ctrl.land_z_fast = 600.0 ;
-    ctrl.vz_land_fast = 10.0 ;
+    ctrl.vz_land_fast = 8.0 ;
 
     % when to decelerate to low speed for landing
-    ctrl.land_z = 20 ;
-    ctrl.vz_land = 5.0 ;
+    ctrl.land_z = 20 ; % basically DO NOT NEED TO CHANGE
+    ctrl.vz_land = 4.0 ;
 
     % Debug logging (set to 1 to print every debug_dt seconds)
     ctrl.debug = 0 ;
