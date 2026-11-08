@@ -54,7 +54,7 @@ A(x) = \begin{bmatrix}
 \gamma\cos(\theta+\psi)/m & 0
 \end{bmatrix},
 $$
-which is rank-deficient because $\tau$ does not appear in $\ddot y$ or $\ddot z$. Hence MIMO I/O linearization is impossible with $(y,z)$. Moreover, the resulting zero dynamics are non-minimum phase (unstable attitude).
+which is rank-deficient because $\tau$ does not appear in $\ddot y$ or $\ddot z$. In other words, the vector relative degree does not exist for this output choice, so the linearizing law $u = A(x)^{-1}(v - b(x))$ cannot be solved, and MIMO I/O linearization is impossible with $(y,z)$.
 
 ## 4. Final Architecture: I/O Linearization on $(z,\psi)$ with Zero-Dynamics Management
 
@@ -158,7 +158,7 @@ $$
 
 ## 3. 以 $(y,z)$ 为输出的 I/O 线性化（不可行）
 
-对应解耦矩阵秩亏，且零动态不稳定，因此弃用。
+两个输出各求导两次后，$\tau$ 都没有出现，解耦矩阵第二列为 0、秩为 1。也就是说这组输出的向量相对阶不存在，解不出线性化控制律 $u = A(x)^{-1}(v - b(x))$，因此弃用。
 
 ## 4. 最终方案：以 $(z,\psi)$ 为输出的 I/O 线性化 + 零动态管理
 
