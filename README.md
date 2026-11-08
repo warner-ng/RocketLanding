@@ -68,7 +68,7 @@ $$
 which is full rank when $\cos(\theta+\psi)\neq 0$. The I/O linearizing control law is
 $$
 f_T = \frac{m\,(v_1+g)}{\gamma\cos(\theta+\psi)},\quad
-	au = J_T v_2,
+\tau = J_T v_2,
 $$
 yielding the linearized channels $\ddot z = v_1$, $\ddot\psi = v_2$. We implement PD laws for $v_1$ and $v_2$, while the remaining dynamics $(\theta,\dot\theta,y,\dot y)$ are stabilized through a backstepping-style virtual control chain.
 
@@ -165,7 +165,7 @@ $$
 选择输出 $h(x)=[z,\psi]^\top$，解耦矩阵对角且在 $\cos(\theta+\psi)\neq 0$ 时满秩，得到
 $$
 f_T = \frac{m\,(v_1+g)}{\gamma\cos(\theta+\psi)},\quad
-	au = J_T v_2,
+\tau = J_T v_2,
 $$
 实现 $\ddot z=v_1$ 与 $\ddot\psi=v_2$。其余状态通过 backstepping 风格的虚拟控制链稳定。
 
