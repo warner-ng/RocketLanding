@@ -15,16 +15,29 @@ x = [y, z, \theta, \psi, \dot y, \dot z, \dot\theta, \dot\psi, m]^\top,\quad
 u = [f_T, \tau]^\top.
 $$
 
-The dynamics (after inverting the diagonal mass matrix) are:
+The dynamics are given in matrix form by the project handout (Eq. (1)):
+
 $$
-\ddot y = -\frac{\gamma}{m} \sin(\theta+\psi) f_T + \frac{d}{m},\quad
-\ddot z = \frac{\gamma}{m} \cos(\theta+\psi) f_T - g,
+\begin{bmatrix} m & & & & \\ & m & & & \\ & & J(m) & & \\ & & & J_T & \\ & & & & 1 \end{bmatrix}
+\begin{bmatrix} \ddot y \\ \ddot z \\ \ddot\theta \\ \ddot\psi \\ \dot m \end{bmatrix}
++
+\begin{bmatrix} 0 \\ mg \\ 0 \\ 0 \\ 0 \end{bmatrix}
+=
+\begin{bmatrix} -\gamma\sin(\psi+\theta) & 0 \\ \gamma\cos(\psi+\theta) & 0 \\ -L\gamma\sin\psi & 0 \\ 0 & 1 \\ -1 & 0 \end{bmatrix}
+\begin{bmatrix} f_T \\ \tau \end{bmatrix}
++
+\begin{bmatrix} d \\ 0 \\ 0 \\ 0 \\ 0 \end{bmatrix}
 $$
-$$
-\ddot\theta = -\frac{L\gamma}{J(m)} \sin(\psi) f_T,\quad
-\ddot\psi = \frac{\tau}{J_T},\quad
-\dot m = -f_T.
-$$
+
+The mass matrix is diagonal, so each row can be read on its own. Expanding each row, then dividing by the coefficient on the left:
+
+| Row | Expanded | Divided by the coefficient | Physical meaning |
+|---|---|---|---|
+| 1 | $m\ddot y = -\gamma\sin(\theta+\psi)\,f_T + d$ | $\ddot y = -\dfrac{\gamma}{m}\sin(\theta+\psi)\,f_T + \dfrac{d}{m}$ | Horizontal Newton's law: horizontal component of the thrust $\gamma f_T$ plus the wind disturbance $d$ |
+| 2 | $m\ddot z + mg = \gamma\cos(\theta+\psi)\,f_T$ | $\ddot z = \dfrac{\gamma}{m}\cos(\theta+\psi)\,f_T - g$ | Vertical Newton's law: vertical component of the thrust against gravity |
+| 3 | $J(m)\,\ddot\theta = -L\gamma\sin(\psi)\,f_T$ | $\ddot\theta = -\dfrac{L\gamma}{J(m)}\sin(\psi)\,f_T$ | Body rotation: the gimbal angle $\psi$ tilts the thrust off the COM, giving a torque with lever arm $L$ |
+| 4 | $J_T\,\ddot\psi = \tau$ | $\ddot\psi = \dfrac{\tau}{J_T}$ | Gimbal: the torque $\tau$ directly drives the nozzle, with nozzle inertia $J_T$ |
+| 5 | $\dot m = -f_T$ | $\dot m = -f_T$ | Mass: fuel is burned at rate $f_T$ ($\gamma$ is the exhaust velocity, so the thrust is $\gamma f_T$) |
 
 Key structural fact: $\tau$ only affects $\ddot\psi$, while $f_T$ affects $\ddot y$, $\ddot z$, $\ddot\theta$, and $\dot m$ simultaneously. This coupling drives the architecture.
 
@@ -55,8 +68,7 @@ $$
 which is full rank when $\cos(\theta+\psi)\neq 0$. The I/O linearizing control law is
 $$
 f_T = \frac{m\,(v_1+g)}{\gamma\cos(\theta+\psi)},\quad
-
-\tau = J_T v_2,
+	au = J_T v_2,
 $$
 yielding the linearized channels $\ddot z = v_1$, $\ddot\psi = v_2$. We implement PD laws for $v_1$ and $v_2$, while the remaining dynamics $(\theta,\dot\theta,y,\dot y)$ are stabilized through a backstepping-style virtual control chain.
 
@@ -114,16 +126,30 @@ $$
 x = [y, z, \theta, \psi, \dot y, \dot z, \dot\theta, \dot\psi, m]^\top,\quad
 u = [f_T, \tau]^\top.
 $$
-动力学为：
+题目给出的动力学矩阵形式（项目说明式 (1)）：
+
 $$
-\ddot y = -\frac{\gamma}{m} \sin(\theta+\psi) f_T + \frac{d}{m},\quad
-\ddot z = \frac{\gamma}{m} \cos(\theta+\psi) f_T - g,
+\begin{bmatrix} m & & & & \\ & m & & & \\ & & J(m) & & \\ & & & J_T & \\ & & & & 1 \end{bmatrix}
+\begin{bmatrix} \ddot y \\ \ddot z \\ \ddot\theta \\ \ddot\psi \\ \dot m \end{bmatrix}
++
+\begin{bmatrix} 0 \\ mg \\ 0 \\ 0 \\ 0 \end{bmatrix}
+=
+\begin{bmatrix} -\gamma\sin(\psi+\theta) & 0 \\ \gamma\cos(\psi+\theta) & 0 \\ -L\gamma\sin\psi & 0 \\ 0 & 1 \\ -1 & 0 \end{bmatrix}
+\begin{bmatrix} f_T \\ \tau \end{bmatrix}
++
+\begin{bmatrix} d \\ 0 \\ 0 \\ 0 \\ 0 \end{bmatrix}
 $$
-$$
-\ddot\theta = -\frac{L\gamma}{J(m)} \sin(\psi) f_T,\quad
-\ddot\psi = \frac{\tau}{J_T},\quad
-\dot m = -f_T.
-$$
+
+质量矩阵是对角的，每一行可以单独看。逐行展开，再除以左边的系数：
+
+| 行 | 展开 | 除以系数 | 物理含义 |
+|---|---|---|---|
+| 1 | $m\ddot y = -\gamma\sin(\theta+\psi)\,f_T + d$ | $\ddot y = -\dfrac{\gamma}{m}\sin(\theta+\psi)\,f_T + \dfrac{d}{m}$ | 水平方向牛顿第二定律：推力 $\gamma f_T$ 的水平分量加上风扰动 $d$ |
+| 2 | $m\ddot z + mg = \gamma\cos(\theta+\psi)\,f_T$ | $\ddot z = \dfrac{\gamma}{m}\cos(\theta+\psi)\,f_T - g$ | 竖直方向牛顿第二定律：推力的竖直分量对抗重力 |
+| 3 | $J(m)\,\ddot\theta = -L\gamma\sin(\psi)\,f_T$ | $\ddot\theta = -\dfrac{L\gamma}{J(m)}\sin(\psi)\,f_T$ | 箭体转动：喷管偏角 $\psi$ 让推力偏离质心，以力臂 $L$ 产生力矩 |
+| 4 | $J_T\,\ddot\psi = \tau$ | $\ddot\psi = \dfrac{\tau}{J_T}$ | 喷管摆动：力矩 $\tau$ 直接驱动喷管，$J_T$ 是喷管的转动惯量 |
+| 5 | $\dot m = -f_T$ | $\dot m = -f_T$ | 质量变化：燃料以 $f_T$ 的速率消耗（$\gamma$ 是燃气喷出速度，所以推力为 $\gamma f_T$） |
+
 核心结构特征：$\tau$ 仅作用于 $\ddot\psi$，而 $f_T$ 同时影响平动、转动与质量变化。
 
 ## 2. Backstepping 方案（不可直接用）
